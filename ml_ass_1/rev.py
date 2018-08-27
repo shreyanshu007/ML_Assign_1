@@ -2,6 +2,25 @@
 
 count = 500
 
+with open('imdb.vocab') as file:
+	em = open('imdbEr.txt')
+	final = open('words.txt', 'w')
+
+	cout = -1
+
+	chk = 3
+
+	for line in em:
+		line_word = file.readline()
+		cout = cout + 1
+		if float(line) > 2.5734 or float(line) < -1.5:
+			final.write(str(cout) + ' ' + line_word)
+
+		if float(line) >= -1.5 and float(line) < -1.45:
+			if chk > 0:
+				final.write(str(cout) + ' ' + line_word)
+				chk = chk - 1
+
 
 
 with open('./test/labeledBow.feat') as file:
@@ -61,23 +80,4 @@ with open('./train/labeledBow.feat') as file:
 
 
 
-
-with open('imdb.vocab') as file:
-	em = open('imdbEr.txt')
-	final = open('words.txt', 'w')
-
-	cout = -1
-
-	chk = 3
-
-	for line in em:
-		line_word = file.readline()
-		cout = cout + 1
-		if float(line) > 2.5734 or float(line) < -1.5:
-			final.write(str(cout) + ' ' + line_word)
-
-		if float(line) >= -1.5 and float(line) < -1.45:
-			if chk > 0:
-				final.write(str(cout) + ' ' + line_word)
-				chk = chk - 1
 
