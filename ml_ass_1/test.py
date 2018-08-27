@@ -1,6 +1,7 @@
 import math
+import pickle
 
-
+print ("Reading attributes and training data")
 
 word_dict = {}		# dicionary of word_index with the words
 word_ind = []		# list of word index
@@ -10,6 +11,7 @@ pos_rating = []		# list of pos rating
 pos_review = {}		# dict of pos review
 
 
+""" Reading the attributes """
 
 with open('./words.txt') as file:
 	for line in file:
@@ -21,6 +23,8 @@ with open('./words.txt') as file:
 
 # print (word_dict)
 
+
+""" Reading the negative reviews """
 
 with open('./train/neg.txt') as file:
 	cnt = 1
@@ -42,6 +46,10 @@ with open('./train/neg.txt') as file:
 # print (neg_review)
 
 # print (neg_rating)
+
+
+""" Reading the positive reviews """
+
 
 with open('./train/pos.txt') as file:
 	cnt = 1
@@ -66,7 +74,7 @@ with open('./train/pos.txt') as file:
 
 
 
-print ("hello")
+print ("Done...")
 
 # CALL the insert function here
 
@@ -81,11 +89,16 @@ class Node(object):
 		self.right = None
 		self.attribute = attribute
 		self.lable = None
+		self.pos_val = None
+		self.neg_val = None
 
 		
 
 	# Left side of tree represents the presence of the attribute
 	# Right side of tree represents the absence of the attribute
+
+
+	""" Takes the list of negative and positive reviews and returns the entropy """
 
 
 	def Entropy(self, neg_rat, pos_rat):
@@ -107,6 +120,12 @@ class Node(object):
 
 		return ent
 
+
+	""" 
+		Takes dictionary of attribute and list of +ve and -ve reviews  
+		Calls the entropy function and gets the parent and child entropy
+		Computes the information gain and returns it
+	"""
 
 
 	def InfoGain(self, att, neg_rat, pos_rat):
@@ -177,6 +196,8 @@ class Node(object):
 		return info_gain
 
 
+	""" Computes the information gain of each attributes and finds the best attribute for a node and returns it """
+
 
 	def find_attribute(self, att_list, neg_rat, pos_rat):
 		max_ig = 0
@@ -193,35 +214,64 @@ class Node(object):
 		return att_ret, att_list
 
 
-# feat is list of attributes
+	# feat is list of attributes
 
+	""" 
+		It is recursive function which creates a node and calls itself for left and right node 
+		It stops if there is no attributes or either -ve or +ve reviews ends
+		Then is assigns the lable to leaf node
+		+1 for +ve review
+		-1 for -ve review
+	"""
 
-	def insert(self, feat, neg_rev_list, pos_rev_list):
+	def insert(self, feat, neg_rev_list, pos_rev_list, ratio_threshold = None):
 
 
 
 		neg = len(neg_rev_list)
 		pos = len(pos_rev_list)
+		self.neg_val = neg
+		self.pos_val = pos
+
 
 		if neg > 0 and pos > 0:
 
+
+			""" 
+				Ratio_threshold is ratio between the size of +ve and -ve review 
+				Its intent is to implement early stoping
+			"""
+
+
+			if ratio_threshold:
+
+				pos = float(pos)
+				neg = float(neg)
+
+				# rat = float(pos / neg)
+				# print (rat)
+
+				if float(pos / neg) < ratio_threshold:
+					self.lable = -1
+
+				elif float(neg / pos) < ratio_threshold:
+					self.lable = +1
+	
 			if len(feat) == 0:
 				if neg > pos:
 					self.lable = -1
 				elif neg < pos:
 					self.lable = +1
 
-			else:
+			elif self.lable == None:
 
 				att, feat = self.find_attribute(feat, neg_rev_list, pos_rev_list)
 
 				if att == None:
 					if neg > pos:
 						self.lable = -1
-					elif neg < pos:
-						self.lable = +1
 				else:
-					print(att)
+					# print(att)
 
 					self.attribute = att
 
@@ -262,8 +312,8 @@ class Node(object):
 
 					self.left = Node(None)
 					self.right = Node(None)
-					self.left.insert(feat, left_neg_rat, left_pos_rat)
-					self.right.insert(feat, right_neg_rat, right_pos_rat)
+					self.left.insert(feat, left_neg_rat, left_pos_rat, ratio_threshold = ratio_threshold)
+					self.right.insert(feat, right_neg_rat, right_pos_rat, ratio_threshold = ratio_threshold)
 
 		else:
 			if neg == 0:
@@ -275,8 +325,11 @@ class Node(object):
 		# Find the neg & pos ratio and stop at certain threshold
 		
 
+	""" It takes a review as input and reutrns weather it is +ve or -ve review according to the tree """
+
+
 	def check(self, test_data):
-		print (self)
+		# print (self)
 		if self:
 			if self.lable:
 				return self.lable
@@ -294,6 +347,10 @@ class Node(object):
 
 		return None
 	
+
+	""" It takes the whole test data as input and computes the overall accuracy of the decision tree """
+
+
 	def checkError(self, neg_review, pos_review):
 		false_count = 0
 		for key in neg_review:
@@ -313,6 +370,9 @@ class Node(object):
 		return false_count/len(list(neg_review.keys()) + list(pos_review.keys()))
 
 
+	""" Prints the attributes of tree in Preorder """
+
+
 	def print(self):
 		print (self.attribute)
 		if self.left:
@@ -325,16 +385,121 @@ class Node(object):
 
 
 
-print ("bye")
+	def pruning(self):
+
+		
+		if self.left and self.left.lable == None :
+			self.left.pruning()
+		if self.right and self.right.lable == None :
+			self.right.pruning()
+
+
+		if self.left and self.right and self.left.lable and self.right.lable :
+			if self.left.lable == +1 and self.right.lable == +1:
+				self.lable = +1
+				self.left = None
+				self.right = None
+			elif self.left.lable == -1 and self.right.lable == -1:
+				self.lable = -1
+				self.left = None
+				self.right = None
+			elif self.left.lable == +1 and self.right.lable == -1:
+				print(self.left.pos_val, self.right.pos_val, self.left.neg_val, self.right.neg_val)
+				if self.pos_val > self.neg_val:
+					self.lable = +1
+					self.left = None
+					self.right = None
+				elif self.pos_val > self.neg_val:
+					self.lable = -1
+					self.left = None
+					self.right = None
+			elif self.left.lable == -1 and self.right.lable == +1:
+				if self.pos_val > self.neg_val:
+					self.lable = +1
+					self.left = None
+					self.right = None
+				elif self.pos_val > self.neg_val:
+					self.lable = -1
+					self.left = None
+					self.right = None
+
+			print ("inside")
+
+		elif self.left.lable:
+			if self.left.lable == +1:
+				self.lable = +1
+				self.left = None
+				self.right = None
+			elif self.left.lable == -1:
+				self.lable = -1
+				self.left = None
+				self.right = None
+
+			print ("inside")
+
+		elif self.right.lable:
+			if self.right.lable == +1:
+				self.lable = +1
+				self.left = None
+				self.right = None
+			elif self.right.lable == -1:
+				self.lable = -1
+				self.left = None
+				self.right = None
+
+			print ("inside")
+
+
+print ("Creating decission tree")
 
 node = Node(word_ind)
-node.insert(word_ind, neg_review, pos_review)
 
+""" Creating decission tree by calling insert function with traning data """
+
+# flip = input("If you want to implement early stoping enter 'y' otherwise 'n'  ")
+
+# if flip == 'y' or flip == 'Y':
+
+# 	rat = input("Enter threshold ratio (suggested value is 0.02)  ")
+# 	rat = float(rat)
+# 	print ("Wait...")
+# 	node.insert(word_ind, neg_review, pos_review, rat)
+
+# elif flip == 'n' or flip == 'N':
+
+# 	print ("Wait...")
+# 	node.insert(word_ind, neg_review, pos_review)
+# else:
+
+# 	print ("Unexpected input, so I assume you meant 'no'  ")
+# 	print ("Wait...")
+# 	node.insert(word_ind, neg_review, pos_review)
+
+
+# Saving the Model
+
+# model_1 = open('./model_1.pickle', 'wb')
+# pickle.dump(node, model_1)
+
+
+
+# To load the model
+
+model = open("model_1.pickle","rb")
+node = pickle.load(model)
+
+
+print ("Done...")
 
 t_neg_rating = []		# list of neg rating
 t_neg_review = {}		# dict of neg review
 t_pos_rating = []		# list of pos rating
 t_pos_review = {}		# dict of pos review
+
+
+""" Reading the negative reviews for test data """
+
+print ("Reading test data")
 
 
 with open('./test/neg.txt') as file:
@@ -358,6 +523,9 @@ with open('./test/neg.txt') as file:
 
 # print (neg_rating)
 
+
+""" Reading the positive reviews for test data """
+
 with open('./test/pos.txt') as file:
 	cnt = 1
 	for line in file:
@@ -379,7 +547,15 @@ with open('./test/pos.txt') as file:
 
 # print (pos_rating)
 
+# printing the error
 
+print ("Done...")
+
+print ("printing the accuracy")
 print ((1 - node.checkError(t_neg_review, t_pos_review)) * 100)
 
 # node.print()
+
+node.pruning()
+print ("printing the accuracy after pruning")
+print ((1 - node.checkError(t_neg_review, t_pos_review)) * 100)
